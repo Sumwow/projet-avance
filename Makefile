@@ -1,9 +1,13 @@
-.PHONY: all clean
+CC      = gcc
+CFLAGS  = -O2 -Wall -Wextra
+LDFLAGS = -lm
 
-all: tsp
+SRC = main.c tsp_io.c tsp_distance.c tsp_matrice.c
+OBJ = $(SRC:.c=.o)
 
-tsp:
-	@gcc -O2 -Wall -Wextra -o tsp main.c tsp_io.c tsp_distance.c -lm
+tsp: $(OBJ)
+	$(CC) $(OBJ) -o $@ $(LDFLAGS)
 
 clean:
-	@rm -f tsp
+	rm -f $(OBJ) tsp
+
