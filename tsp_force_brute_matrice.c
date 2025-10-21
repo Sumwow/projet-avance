@@ -2,139 +2,111 @@
 #include <stdlib.h>
 #include "tsp_matrice.h"
 
-double lire_distance_matrice(const MatriceTSP* matrice, int i, int j) {
+/* Locales : helpers matrice + permutation */
+static double lire_distance_matrice(const MatriceTSP* matrice, int i, int j) {
     if (i == j) return 0.0;
-
-    // On s'assure que i < j pour accéder correctement à la matrice
-    if (i > j) {
-        int temp = i;
-        i = j;
-        j = temp;
-    }
-
-    int ligne = i - 1;           // ligne correspondant à la ville i
-    int colonne = j - i - 1;     // colonne correspondant à la ville j
+    if (i > j) { int t = i; i = j; j = t; }
+    int ligne = i - 1;
+    int colonne = j - i - 1;
     return matrice->data[ligne][colonne];
 }
 
-
-double longueur_tour_matrice(const MatriceTSP* matrice, const TOUR_TSP* tour) {
-    double longueur = 0.0;
-    int nbVilles = tour->DIMENSION;
-
-    // On additionne les distances entre chaque paire consécutive
-    for (int i = 0; i < nbVilles - 1; i++) {
-        int ville1 = tour->SECTION_TOUR[i];
-        int ville2 = tour->SECTION_TOUR[i + 1];
-        longueur += lire_distance_matrice(matrice, ville1, ville2);
+static double longueur_tour_matrice(const MatriceTSP* matrice, const TOUR_TSP* tour) {
+    double L = 0.0;
+    int n = tour->DIMENSION;
+    for (int k = 0; k < n - 1; k++) {
+        int a = tour->SECTION_TOUR[k];
+        int b = tour->SECTION_TOUR[k + 1];
+        L += lire_distance_matrice(matrice, a, b);
     }
-
-    // Si la tournée est fermée, on ajoute la distance retour
-    if (tour->FERMEE) {
-        int derniereVille = tour->SECTION_TOUR[nbVilles - 1];
-        int premiereVille = tour->SECTION_TOUR[0];
-        longueur += lire_distance_matrice(matrice, derniereVille, premiereVille);
+    if (tour->FERMEE && n > 1) {
+        int a = tour->SECTION_TOUR[n - 1];
+        int b = tour->SECTION_TOUR[0];
+        L += lire_distance_matrice(matrice, a, b);
     }
-
-    return longueur;
+    return L;
 }
 
-/* On permute dans l'ordre lexicographique.
-   Ca renvoie 1 si y'a une permutation et 0 dans le cas contraireµ*/
-int prochaine_permutation(int *villes, int nbVilles) {
+static int prochaine_permutation(int *villes, int nbVilles) {
     int i = nbVilles - 2;
+    while (i >= 0 && villes[i] >= villes[i + 1]) i--;
+    if (i < 0) return 0;
 
-    // On cherche le premier élément qui est plus petit que le suivant
-    while (i >= 0 && villes[i] >= villes[i + 1]) {
-        i--;
-    }
-    if (i < 0) {
-        return 0;
-    }
-
-    // On cherche le plus petit élément > à villes[i]
     int j = nbVilles - 1;
-    while (villes[j] <= villes[i]) {
-        j--;
+    while (villes[j] <= villes[i]) j--;
+
+    int tmp = villes[i]; villes[i] = villes[j]; villes[j] = tmp;
+
+    int d = i + 1, f = nbVilles - 1;
+    while (d < f) {
+        tmp = villes[d]; villes[d] = villes[f]; villes[f] = tmp;
+        d++; f--;
     }
-
-    // On échange les deux éléments trouvés
-    int temp = villes[i];
-    villes[i] = villes[j];
-    villes[j] = temp;
-
-    // On renverse la partie du tableau après i
-    int debut = i + 1;
-    int fin = nbVilles - 1;
-    while (debut < fin) {
-        temp = villes[debut];
-        villes[debut] = villes[fin];
-        villes[fin] = temp;
-        debut++;
-        fin--;
-    }
-
     return 1;
 }
 
-double force_brute_matrice(const MatriceTSP* matrice, TOUR_TSP* meilleureTournee, TOUR_TSP* pireTournee) {
+/* Force brute via demi-matrice (patch allocations inclus) */
+double force_brute_matrice(const MatriceTSP* matrice,
+                           TOUR_TSP* meilleureTournee,
+                           TOUR_TSP* pireTournee) {
 
     int nbVilles = matrice->dimension;
-
-    // On stocke l'ordre des villes dans un tableau
-    int *ordreVilles = malloc(nbVilles * sizeof(int));
-    if (ordreVilles == NULL) {
-        printf("Erreur force brute (allocation)\n");
-        return -1;
+    int *ordreVilles = (int*)malloc((size_t)nbVilles * sizeof(int));
+    if (!ordreVilles) {
+        fprintf(stderr, "Erreur force brute (allocation)\n");
+        return -1.0;
     }
-
-    // On crée la tournée de départ : [1, 2, 3, ..., N]
-    for (int i = 0; i < nbVilles; i++) {
-        ordreVilles[i] = i + 1;
-    }
+    for (int i = 0; i < nbVilles; i++) ordreVilles[i] = i + 1;
 
     TOUR_TSP tourActuelle;
     tourActuelle.DIMENSION = nbVilles;
     tourActuelle.SECTION_TOUR = ordreVilles;
-    tourActuelle.FERMEE = 1; // on revient à la ville de départ
+    tourActuelle.FERMEE = 1;
 
-    // On calcule la longueur de la tournée de départ
     double longueurMin = longueur_tour_matrice(matrice, &tourActuelle);
     double longueurMax = longueurMin;
 
-    // On la considère comme la meilleure et la pire tournée
+    /* Patch minimal : allouer sorties si besoin */
+    if (meilleureTournee->SECTION_TOUR == NULL || meilleureTournee->DIMENSION != nbVilles) {
+        if (meilleureTournee->SECTION_TOUR) free(meilleureTournee->SECTION_TOUR);
+        meilleureTournee->SECTION_TOUR = (int*)malloc((size_t)nbVilles * sizeof(int));
+        if (!meilleureTournee->SECTION_TOUR) { free(ordreVilles); return -1.0; }
+        meilleureTournee->DIMENSION = nbVilles;
+        meilleureTournee->FERMEE = 1;
+    }
+    if (pireTournee->SECTION_TOUR == NULL || pireTournee->DIMENSION != nbVilles) {
+        if (pireTournee->SECTION_TOUR) free(pireTournee->SECTION_TOUR);
+        pireTournee->SECTION_TOUR = (int*)malloc((size_t)nbVilles * sizeof(int));
+        if (!pireTournee->SECTION_TOUR) { free(ordreVilles); free(meilleureTournee->SECTION_TOUR); return -1.0; }
+        pireTournee->DIMENSION = nbVilles;
+        pireTournee->FERMEE = 1;
+    }
+
     for (int i = 0; i < nbVilles; i++) {
         meilleureTournee->SECTION_TOUR[i] = ordreVilles[i];
-        pireTournee->SECTION_TOUR[i] = ordreVilles[i];
+        pireTournee->SECTION_TOUR[i]     = ordreVilles[i];
     }
     meilleureTournee->LONGUEUR = longueurMin;
-    pireTournee->LONGUEUR = longueurMax;
+    pireTournee->LONGUEUR      = longueurMax;
 
-    // On parcourt toutes les permutations suivantes
     while (prochaine_permutation(ordreVilles, nbVilles)) {
+        double L = longueur_tour_matrice(matrice, &tourActuelle);
 
-        double longueurActuelle = longueur_tour_matrice(matrice, &tourActuelle);
-
-        // Si la tournée actuelle est plus courte → nouvelle meilleure tournée
-        if (longueurActuelle < longueurMin) {
-            longueurMin = longueurActuelle;
+        if (L < longueurMin) {
+            longueurMin = L;
             for (int i = 0; i < nbVilles; i++)
                 meilleureTournee->SECTION_TOUR[i] = ordreVilles[i];
-            meilleureTournee->LONGUEUR = longueurActuelle;
+            meilleureTournee->LONGUEUR = L;
         }
-
-        // Si la tournée actuelle est plus longue → nouvelle pire tournée
-        if (longueurActuelle > longueurMax) {
-            longueurMax = longueurActuelle;
+        if (L > longueurMax) {
+            longueurMax = L;
             for (int i = 0; i < nbVilles; i++)
                 pireTournee->SECTION_TOUR[i] = ordreVilles[i];
-            pireTournee->LONGUEUR = longueurActuelle;
+            pireTournee->LONGUEUR = L;
         }
     }
 
-    // On libère la mémoire allouée pour le tableau temporaire
     free(ordreVilles);
-
-    // On renvoie la longueur de la meilleure tournée
     return longueurMin;
 }
+
