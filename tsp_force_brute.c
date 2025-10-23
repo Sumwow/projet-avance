@@ -1,6 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <stdbool.h>
 #include "tsp_distance.h"
+
+bool signal_recu = false;
+
+void handler(int sig){
+  (void) sig;
+  signal_recu = true;
+}
+
+void print_force_brute(double meilleur, double pire){
+  printf("Meilleur longueur : %f\n",meilleur);
+  printf("Pire longueur : %f\n",pire);
+  printf("Entrez un caractère pour reprendre\n");
+  
+  getchar();
+  printf("Reprise de force brute\n");
+  signal_recu = false;
+}
 
 /* Locale : prochaine permutation lexicographique */
 static int prochaine_permutation(int *villes, int nbVilles) {
@@ -37,7 +56,9 @@ double force_brute(const TSPLIB_INSTANCE* instance, DistanceFn calculDistance,
     tourActuelle.DIMENSION = nbVilles;
     tourActuelle.SECTION_TOUR = ordreVilles;
     tourActuelle.FERMEE = 1;
-
+    
+    
+    
     double longueurMin = longueur_tour(instance, &tourActuelle, calculDistance);
     double longueurMax = longueurMin;
 
@@ -65,6 +86,9 @@ double force_brute(const TSPLIB_INSTANCE* instance, DistanceFn calculDistance,
     pireTournee->LONGUEUR      = longueurMax;
 
     while (prochaine_permutation(ordreVilles, nbVilles)) {
+        
+        signal(SIGINT,handler);
+        
         double L = longueur_tour(instance, &tourActuelle, calculDistance);
 
         if (L < longueurMin) {
@@ -78,6 +102,10 @@ double force_brute(const TSPLIB_INSTANCE* instance, DistanceFn calculDistance,
             for (int i = 0; i < nbVilles; i++)
                 pireTournee->SECTION_TOUR[i] = ordreVilles[i];
             pireTournee->LONGUEUR = L;
+        }
+        
+        if(signal_recu){
+          print_force_brute(meilleureTournee->LONGUEUR,pireTournee->LONGUEUR);
         }
     }
 
