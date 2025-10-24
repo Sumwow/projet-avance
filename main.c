@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <time.h>
+
 #include "tsp_types.h"
 #include "tsp_io.h"
 #include "tsp_distance.h"
@@ -8,155 +11,167 @@
 #include "tsp_force_brute.h"
 #include "tsp_force_brute_matrice.h"
 
-/* Affiche l’utilisation du programme */
-static void usage(const char* prog) {
+static void usage(const char* prog){
     fprintf(stderr,
-        "Usage: %s -f <fichier.tsp> [-c] [-b] [-M] [-F]\n"
-        "  -f <fichier.tsp> : fichier TSPLIB (obligatoire)\n"
-        "  -c               : afficher metadonnees (NAME/TYPE/DIM/EDGE_WEIGHT_TYPE)\n"
-        "  -b               : lancer la force brute (meilleure & pire tournee)\n"
-        "  -M               : (avec -b) utiliser la demi-matrice pour la force brute\n"
-        "  -F               : forcer le bruteforce meme si DIMENSION>12 (tres lent)\n",
+        "Usage: %s -f <fichier.tsp> [-c] [-m bf] [-M] [-F]\n"
+        "  -c       : tour canonique\n"
+        "  -m bf    : force brute\n"
+        "  -M       : (avec -m bf) version matrice\n"
+        "  -F       : (avec -m bf) forcer si N>12\n",
         prog);
 }
 
-/* Crée la tournée canonique : 1..N (fermée) */
-static TOUR_TSP tour_canonique(int n) {
+/* [1,2,3,...,N] sans espaces */
+static void print_tour_compact_no_space(const TOUR_TSP* T){
+    putchar('[');
+    for (int i = 0; i < T->DIMENSION; ++i) {
+        if (i) putchar(',');
+        printf("%d", T->SECTION_TOUR[i]);
+    }
+    putchar(']');
+}
+
+/* Crée la tournée canonique 1..n fermée */
+static TOUR_TSP tour_canonique(int n){
     TOUR_TSP T;
     T.DIMENSION = n;
     T.FERMEE = 1;
     T.LONGUEUR = -1.0;
     T.SECTION_TOUR = (int*)malloc((size_t)n * sizeof(int));
-    if (!T.SECTION_TOUR) {
-        fprintf(stderr, "Erreur d’allocation memoire pour la tournee.\n");
-        exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < n; i++) T.SECTION_TOUR[i] = i + 1;
+    if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour\n"); exit(1); }
+    for (int i = 0; i < n; ++i) T.SECTION_TOUR[i] = i + 1;
     return T;
 }
 
-static void print_tour_inline(const TOUR_TSP* T) {
-    for (int i = 0; i < T->DIMENSION; ++i) {
-        printf("%d", T->SECTION_TOUR[i]);
-        if (i + 1 < T->DIMENSION) printf(" ");
-    }
-    printf("\n");
+/* Ligne normalisée unique */
+static void print_line(const char* name, const char* algo, double secs, double length, const TOUR_TSP* T){
+    printf("Tour %s %s %.6f %.0f ", name, algo, secs, length);
+    print_tour_compact_no_space(T);
+    putchar('\n');
 }
 
-int main(int argc, char** argv) {
-    const char* file = NULL;
-    int check = 0;         /* -c */
-    int do_bruteforce = 0; /* -b */
-    int use_matrix_bf = 0; /* -M */
-    int force_large = 0;   /* -F */
+int main(int argc, char** argv){
+    int opt;
+    FILE* output = stdout;
+    const char* outfile = NULL;
+    const char* filename = NULL;
+    int want_canonical = 0;    /* -c */
+    const char* method = NULL; /* -m bf */
+    int use_matrix = 0;        /* -M */
+    int force_large = 0;       /* -F */
 
-    /* Args */
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
-            file = argv[++i];
-        } else if (strcmp(argv[i], "-c") == 0) {
-            check = 1;
-        } else if (strcmp(argv[i], "-b") == 0) {
-            do_bruteforce = 1;
-        } else if (strcmp(argv[i], "-M") == 0) {
-            use_matrix_bf = 1;
-        } else if (strcmp(argv[i], "-F") == 0) {
-            force_large = 1;
-        } else {
-            usage(argv[0]); return 1;
+    while ((opt = getopt(argc, argv, "hf:cm:MFo:")) != -1) {
+        switch (opt) {
+            case 'h': usage(argv[0]); return 0;
+            case 'f': filename = optarg; break;
+            case 'c': want_canonical = 1; break;
+            case 'm': method = optarg; break;
+            case 'o': outfile = optarg; break;
+            case 'M': use_matrix = 1; break;
+            case 'F': force_large = 1; break;
+            default: usage(argv[0]); return 1;
         }
     }
-    if (!file) { usage(argv[0]); return 1; }
+    if (!filename) { usage(argv[0]); return 1; }
+    
+    if(outfile){
+      output = fopen(outfile,"a");
+      if(!output){
+        printf("Erreur ouverture fichier sortie");
+        return 1;
+      }
+      if(dup2(fileno(output), fileno(stdout)) == -1){
+        printf("Erreur dup2 redirection sortie");
+        return 1;
+      }
+    }
+
+    /* Si -m est fourni, il prime sur -c (on ignore -c) */
+    if (method) want_canonical = 0;
 
     /* Lecture TSPLIB */
     TSPLIB_INSTANCE I;
-    int rc = lire_tsplib(file, &I);
-    if (rc != 0) {
-        fprintf(stderr, "Erreur de lecture TSPLIB (%d)\n", rc);
+    if (lire_tsplib(filename, &I) != 0) {
+        /* ligne "safe" pour ne pas casser le parseur Python */
+        printf("Tour unknown canonical 0.000000 0 []\n");
         return 2;
     }
-
-    /* Canonique + distance fn + demi-matrice */
-    TOUR_TSP T = tour_canonique(I.DIMENSION);
     DistanceFn d = distance_pour(&I);
-    double L = longueur_tour(&I, &T, d);
-
-    MatriceTSP* M = creer_matrice_demie(&I, d);
-    if (!M) {
-        fprintf(stderr, "Erreur: creation de la demi-matrice echouee.\n");
-        free(T.SECTION_TOUR);
+    if (!d) {
+        printf("Tour %s canonical 0.000000 0 []\n", I.NAME[0] ? I.NAME : "unknown");
         liberer_instance(&I);
         return 3;
     }
 
-    if (check) {
-        printf("NAME: %s\n", I.NAME);
-        printf("TYPE: %s\n", I.TYPE);
-        printf("DIMENSION: %d\n", I.DIMENSION);
-        printf("EDGE_WEIGHT_TYPE: %s\n", I.EDGE_WEIGHT_TYPE);
+    /* Tournée canonique (toujours disponible, utile en fallback) */
+    TOUR_TSP canon = tour_canonique(I.DIMENSION);
+
+    /* --- Méthode canonique --- */
+    if (want_canonical || !method) {
+        clock_t t0 = clock();
+        double L = longueur_tour(&I, &canon, d);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        print_line(I.NAME, "canonical", secs, L, &canon);
+
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
     }
 
-    /* Longueur canonique */
-    printf("CANONICAL_LENGTH=%.0f\n", L);
-
-    /* Demi-matrice toujours affichée */
-    printf("\n=== DEMI-MATRICE DES DISTANCES (INFÉRIEURE) ===\n\n");
-    for (int i = 1; i <= I.DIMENSION; i++) {
-        for (int j = 1; j <= i; j++) {
-            double dist = matrice_distance(M, i, j);
-            printf("%6.0f ", dist);
-        }
-        printf("\n");
+    /* --- Ici, -m est fourni : on n’accepte que 'bf' --- */
+    if (strcmp(method, "bf") != 0) {
+        fprintf(stderr, "Erreur: methode non supportee: %s (seuls 'canonical' via -c ou 'bf' via -m bf)\n", method);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 4;
     }
-    printf("\n");
 
-    /* Force brute (optionnel) */
-    if (do_bruteforce) {
-        if (I.DIMENSION > 12 && !force_large) {
-            fprintf(stderr, "Attention: DIMENSION=%d trop grande pour brute force (max 12). Utilisez -F pour forcer.\n",
-                    I.DIMENSION);
+    /* Brute force demandée */
+    if (I.DIMENSION > 12 && !force_large) {
+        fprintf(stderr, "Erreur: DIMENSION=%d > 12. Utilisez -F pour forcer la brute force.\n", I.DIMENSION);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 5;
+    }
+
+    TOUR_TSP best = (TOUR_TSP){0}, worst = (TOUR_TSP){0};
+    best.SECTION_TOUR = NULL; worst.SECTION_TOUR = NULL;
+
+    double best_len;
+    clock_t t0 = clock();
+    if (use_matrix) {
+        MatriceTSP* M = creer_matrice_demie(&I, d);
+        if (!M) {
+            best_len = force_brute(&I, d, &best, &worst);
         } else {
-            TOUR_TSP best = {0}, worst = {0};
-            double best_len = -1.0, worst_len = -1.0;
-
-            if (use_matrix_bf) {
-                best.SECTION_TOUR = NULL; worst.SECTION_TOUR = NULL;
-                best_len = force_brute_matrice(M, &best, &worst);
-                worst_len = worst.LONGUEUR;
-
-                printf("=== FORCE BRUTE (Matrice) ===\n");
-                printf("Meilleure longueur  = %.0f\n", best_len);
-                printf("Meilleure tournee    : ");
-                print_tour_inline(&best);
-                printf("Pire longueur       = %.0f\n", worst_len);
-                printf("Pire tournee         : ");
-                print_tour_inline(&worst);
-
-                if (best.SECTION_TOUR)  free(best.SECTION_TOUR);
-                if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
-            } else {
-                best.SECTION_TOUR = NULL; worst.SECTION_TOUR = NULL;
-                best_len = force_brute(&I, d, &best, &worst);
-                worst_len = worst.LONGUEUR;
-
-                printf("=== FORCE BRUTE (Distance) ===\n");
-                printf("Meilleure longueur  = %.0f\n", best_len);
-                printf("Meilleure tournee    : ");
-                print_tour_inline(&best);
-                printf("Pire longueur       = %.0f\n", worst_len);
-                printf("Pire tournee         : ");
-                print_tour_inline(&worst);
-
-                if (best.SECTION_TOUR)  free(best.SECTION_TOUR);
-                if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
-            }
-            printf("\n");
+            best_len = force_brute_matrice(M, &best, &worst);
+            detruire_matrice_demie(M);
         }
+    } else {
+        best_len = force_brute(&I, d, &best, &worst);
+    }
+    clock_t t1 = clock();
+    double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+    if (best_len < 0.0) {
+        /* Échec BF -> message d’erreur et sortie non-zéro (pas de ligne Tour) */
+        fprintf(stderr, "Erreur: force brute a echoue.\n");
+        if (best.SECTION_TOUR) free(best.SECTION_TOUR);
+        if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 6;
     }
 
-    /* Free */
-    free(T.SECTION_TOUR);
-    detruire_matrice_demie(M);
+    print_line(I.NAME, "bf", secs, best_len, &best);
+
+    if(output != stdout) fclose(output);
+
+    if (best.SECTION_TOUR) free(best.SECTION_TOUR);
+    if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
+    free(canon.SECTION_TOUR);
     liberer_instance(&I);
     return 0;
 }
