@@ -1,3 +1,2 @@
 att10.tsp
-att15.tsp
-att532.tsp
+burma14.tsp

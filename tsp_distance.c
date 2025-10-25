@@ -24,7 +24,7 @@ double dist_euc2d(const TSPLIB_INSTANCE* I, int i, int j) {
 static inline double geo_to_rad(double dddmm) {
     int deg = (int)dddmm;
     double min = dddmm - (double)deg;
-    double val = (double)deg + (5.0 * min) / 3.0;
+    double val = (double)deg + 5.0 * min / 3.0;
     return M_PI * val / 180.0;
 }
 
@@ -35,22 +35,22 @@ double dist_geo(const TSPLIB_INSTANCE* I, int i, int j) {
     const NODE* a = node_at(I, i);
     const NODE* b = node_at(I, j);
 
-    double lati = geo_to_rad(a->Y);
-    double loni = geo_to_rad(a->X);
-    double latj = geo_to_rad(b->Y);
-    double lonj = geo_to_rad(b->X);
+    double lati = geo_to_rad(a->X);
+    double loni = geo_to_rad(a->Y);
+    double latj = geo_to_rad(b->X);
+    double lonj = geo_to_rad(b->Y);
 
     double q1 = cos(loni - lonj);
     double q2 = cos(lati - latj);
     double q3 = cos(lati + latj);
 
     double R = 6378.388;
-    double r = acos(0.5 * ((1.0 + q2) * q1 - (1.0 - q2) * q3));
+    double r = acos(0.5 * ((1.0 + q1) * q2 - (1.0 - q1) * q3));
     return floor(R * r + 1.0);
 }
 
 
-/* Distance pseudo-euclidienne (TSPLIB) */
+/* Didienne (TSPLIB) */
 double dist_att(const TSPLIB_INSTANCE* I, int i, int j) {
     if (i == j) return 0.0;
     const NODE* a = node_at(I, i);
