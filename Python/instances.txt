@@ -1,0 +1,2 @@
+../TestTsp/att10.tsp
+../TestTsp/burma14.tsp

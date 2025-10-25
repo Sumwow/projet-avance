@@ -1,2 +1,0 @@
-att10.tsp
-burma14.tsp

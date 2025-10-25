@@ -72,7 +72,7 @@ def tests_instances_list(instances_file,methods):
 # opt = tsplib95.load_solution(filename+'.opt.tour') pour charger un fichier solution dans python
 #filename = "burma14.tsp"
 filename = "att10.tsp" #
-path = "./" # adaptez à votre cas
+path = "../Source/" # adaptez à votre cas
 code = "tsp" # nom du programme C
 methods = ["-c","bf"]#"bf","gadpx"
 
