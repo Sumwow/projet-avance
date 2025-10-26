@@ -1,6 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <signal.h>
 #include "tsp_matrice.h"
+
+
+
+bool signal_recu_matrice = false;
+
+void handler_matrice(int sig){
+  (void) sig;
+  signal_recu_matrice = true;
+}
+
+void print_force_brute_matrice(double meilleur, double pire){
+  printf("Meilleur longueur : %f\n",meilleur);
+  printf("Pire longueur : %f\n",pire);
+  printf("Entrez un caractère pour reprendre\n");
+  
+  getchar();
+  printf("Reprise de force brute avec matrice\n");
+  signal_recu_matrice = false;
+}
 
 /* Locales : helpers matrice + permutation */
 static double lire_distance_matrice(const MatriceTSP* matrice, int i, int j) {
@@ -90,6 +111,9 @@ double force_brute_matrice(const MatriceTSP* matrice,
     pireTournee->LONGUEUR      = longueurMax;
 
     while (prochaine_permutation(ordreVilles, nbVilles)) {
+    
+    	signal(SIGINT,handler_matrice);
+    
         double L = longueur_tour_matrice(matrice, &tourActuelle);
 
         if (L < longueurMin) {
@@ -103,6 +127,10 @@ double force_brute_matrice(const MatriceTSP* matrice,
             for (int i = 0; i < nbVilles; i++)
                 pireTournee->SECTION_TOUR[i] = ordreVilles[i];
             pireTournee->LONGUEUR = L;
+        }
+        
+        if(signal_recu_matrice){
+          print_force_brute_matrice(meilleureTournee->LONGUEUR,pireTournee->LONGUEUR);
         }
     }
 

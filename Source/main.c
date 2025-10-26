@@ -13,11 +13,13 @@
 
 static void usage(const char* prog){
     fprintf(stderr,
-        "Usage: %s -f <fichier.tsp> [-c] [-m bf] [-M] [-F]\n"
+        "Usage: %s -f <fichier.tsp> [-c] [-m bf] [-M] [-F] [-o <fichier_sortie.txt>\n"
+        "  -h       : aide usage\n"
         "  -c       : tour canonique\n"
         "  -m bf    : force brute\n"
         "  -M       : (avec -m bf) version matrice\n"
-        "  -F       : (avec -m bf) forcer si N>12\n",
+        "  -F       : (avec -m bf) forcer si N>12\n"
+        "  -o       : met les résultats dans un fichier txt\n",
         prog);
 }
 

@@ -14,6 +14,7 @@
 static void usage(const char* prog){
     fprintf(stderr,
         "Usage: %s -f <fichier.tsp> [-c] [-m bf] [-M] [-F] [-X]\n"
+        "  -h       : aide usage\n"
         "  -c       : canonique\n"
         "  -m bf    : force brute\n"
         "  -M       : (bf) version matrice\n"
