@@ -10,16 +10,18 @@
 #include "tsp_matrice.h"
 #include "tsp_force_brute.h"
 #include "tsp_force_brute_matrice.h"
+#include "tsp_nn.h"
 
 static void usage(const char* prog){
     fprintf(stderr,
-        "Usage: %s -f <fichier.tsp> [-c] [-m bf] [-M] [-F] [-o <fichier_sortie.txt>\n"
+        "Usage: %s -f <fichier.tsp> [-c] [-m bf|nn] [-M] [-F] [-o <fichier_sortie.txt>]\n"
         "  -h       : aide usage\n"
         "  -c       : tour canonique\n"
         "  -m bf    : force brute\n"
-        "  -M       : (avec -m bf) version matrice\n"
+        "  -m nn    : plus proche voisin\n"
+        "  -M       : avec -m bf ou -m nn : version demi-matrice\n"
         "  -F       : (avec -m bf) forcer si N>12\n"
-        "  -o       : met les résultats dans un fichier txt\n",
+        "  -o file  : met les resultats dans un fichier (append)\n",
         prog);
 }
 
@@ -58,9 +60,9 @@ int main(int argc, char** argv){
     const char* outfile = NULL;
     const char* filename = NULL;
     int want_canonical = 0;    /* -c */
-    const char* method = NULL; /* -m bf */
-    int use_matrix = 0;        /* -M */
-    int force_large = 0;       /* -F */
+    const char* method = NULL; /* -m bf|nn */
+    int use_matrix = 0;        /* -M (pour bf ou nn) */
+    int force_large = 0;       /* -F (pour bf) */
 
     while ((opt = getopt(argc, argv, "hf:cm:MFo:")) != -1) {
         switch (opt) {
@@ -75,17 +77,17 @@ int main(int argc, char** argv){
         }
     }
     if (!filename) { usage(argv[0]); return 1; }
-    
-    if(outfile){
-      output = fopen(outfile,"a");
-      if(!output){
-        printf("Erreur ouverture fichier sortie");
-        return 1;
-      }
-      if(dup2(fileno(output), fileno(stdout)) == -1){
-        printf("Erreur dup2 redirection sortie");
-        return 1;
-      }
+
+    if (outfile){
+        output = fopen(outfile,"a");
+        if(!output){
+            fprintf(stderr, "Erreur ouverture fichier sortie\n");
+            return 1;
+        }
+        if(dup2(fileno(output), fileno(stdout)) == -1){
+            fprintf(stderr, "Erreur dup2 redirection sortie\n");
+            return 1;
+        }
     }
 
     /* Si -m est fourni, il prime sur -c (on ignore -c) */
@@ -105,10 +107,10 @@ int main(int argc, char** argv){
         return 3;
     }
 
-    /* Tournée canonique (toujours disponible, utile en fallback) */
+    /* Tournée canonique (toujours dispo) */
     TOUR_TSP canon = tour_canonique(I.DIMENSION);
 
-    /* --- Méthode canonique --- */
+    /* Méthode canonique (si -c OU aucune méthode) */
     if (want_canonical || !method) {
         clock_t t0 = clock();
         double L = longueur_tour(&I, &canon, d);
@@ -122,12 +124,46 @@ int main(int argc, char** argv){
         return 0;
     }
 
-    /* --- Ici, -m est fourni : on n’accepte que 'bf' --- */
-    if (strcmp(method, "bf") != 0) {
-        fprintf(stderr, "Erreur: methode non supportee: %s (seuls 'canonical' via -c ou 'bf' via -m bf)\n", method);
+    /* -m nn : plus proche voisin */
+    if (strcmp(method, "nn") == 0) {
+        TOUR_TSP T;
+        T.DIMENSION = I.DIMENSION;
+        T.FERMEE = 1;
+        T.LONGUEUR = -1.0;
+        T.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
+        if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour nn\n"); free(canon.SECTION_TOUR); liberer_instance(&I); return 4; }
+
+        clock_t t0 = clock();
+        double L;
+        if (use_matrix) {
+            /* Variante demi-matrice */
+            MatriceTSP* M = creer_matrice_demie(&I, d);
+            if (!M) {
+                L = plus_proche_voisin(&I, d, &T, 1);
+            } else {
+                L = plus_proche_voisin_matrice(M, &T, 1);
+                detruire_matrice_demie(M);
+            }
+        } else {
+            L = plus_proche_voisin(&I, d, &T, 1);
+        }
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        print_line(I.NAME, "nn", secs, L, &T);
+
+        free(T.SECTION_TOUR);
         free(canon.SECTION_TOUR);
         liberer_instance(&I);
-        return 4;
+        return 0;
+    }
+
+    /* -m bf : force brute  */
+    if (strcmp(method, "bf") != 0) {
+        fprintf(stderr, "Erreur: methode non supportee: %s (seuls 'canonical' via -c, 'bf' ou 'nn')\n", method);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 5;
     }
 
     /* Brute force demandée */
@@ -135,7 +171,7 @@ int main(int argc, char** argv){
         fprintf(stderr, "Erreur: DIMENSION=%d > 12. Utilisez -F pour forcer la brute force.\n", I.DIMENSION);
         free(canon.SECTION_TOUR);
         liberer_instance(&I);
-        return 5;
+        return 6;
     }
 
     TOUR_TSP best = (TOUR_TSP){0}, worst = (TOUR_TSP){0};
@@ -158,18 +194,17 @@ int main(int argc, char** argv){
     double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
 
     if (best_len < 0.0) {
-        /* Échec BF -> message d’erreur et sortie non-zéro (pas de ligne Tour) */
         fprintf(stderr, "Erreur: force brute a echoue.\n");
         if (best.SECTION_TOUR) free(best.SECTION_TOUR);
         if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
         free(canon.SECTION_TOUR);
         liberer_instance(&I);
-        return 6;
+        return 7;
     }
 
     print_line(I.NAME, "bf", secs, best_len, &best);
 
-    if(output != stdout) fclose(output);
+    if (output != stdout) fclose(output);
 
     if (best.SECTION_TOUR) free(best.SECTION_TOUR);
     if (worst.SECTION_TOUR) free(worst.SECTION_TOUR);
@@ -177,4 +212,3 @@ int main(int argc, char** argv){
     liberer_instance(&I);
     return 0;
 }
-
