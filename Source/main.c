@@ -11,6 +11,7 @@
 #include "tsp_force_brute.h"
 #include "tsp_force_brute_matrice.h"
 #include "tsp_nn.h"
+#include "tsp_rw.h"
 
 static void usage(const char* prog){
     fprintf(stderr,
@@ -19,6 +20,7 @@ static void usage(const char* prog){
         "  -c       : tour canonique\n"
         "  -m bf    : force brute\n"
         "  -m nn    : plus proche voisin\n"
+        "  -m rw    : marche aléatoire\n"
         "  -M       : avec -m bf ou -m nn : version demi-matrice\n"
         "  -F       : (avec -m bf) forcer si N>12\n"
         "  -o file  : met les resultats dans un fichier (append)\n",
@@ -151,6 +153,28 @@ int main(int argc, char** argv){
         double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
 
         print_line(I.NAME, "nn", secs, L, &T);
+
+        free(T.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
+    }
+
+    if (strcmp(method, "rw") == 0) {
+        TOUR_TSP T;
+        T.DIMENSION = I.DIMENSION;
+        T.FERMEE = 1;
+        T.LONGUEUR = -1.0;
+        T.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
+        if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour rw\n"); free(canon.SECTION_TOUR); liberer_instance(&I); return 4; }
+
+        clock_t t0 = clock();
+        double L;
+        L = marche_aleatoire(&I,d,&T);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        print_line(I.NAME, "rw", secs, L, &T);
 
         free(T.SECTION_TOUR);
         free(canon.SECTION_TOUR);
