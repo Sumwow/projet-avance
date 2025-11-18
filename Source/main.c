@@ -13,6 +13,8 @@
 #include "tsp_nn.h"
 #include "tsp_rw.h"
 #include "tsp_2opt.h"
+#include "tsp_ga.h"
+
 
 static void usage(const char* prog){
     fprintf(stderr,
@@ -22,6 +24,8 @@ static void usage(const char* prog){
         "  -m bf    : force brute\n"
         "  -m nn    : plus proche voisin\n"
         "  -m rw    : marche aléatoire\n"
+        "  -m ga <Nindividu> <taux_mut> <Ngeneration> : algorithme génétique\n"
+
         "  -M       : avec -m bf ou -m nn : version demi-matrice\n"
         "  -F       : (avec -m bf) forcer si N>12\n"
         "  -o file  : met les resultats dans un fichier (append)\n",
@@ -189,16 +193,21 @@ int main(int argc, char** argv){
         T.FERMEE = 1;
         T.LONGUEUR = -1.0;
         T.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
-        if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour rw\n"); free(canon.SECTION_TOUR); liberer_instance(&I); return 4; }
-
+        if (!T.SECTION_TOUR) {
+            fprintf(stderr, "alloc tour rw\n");
+            free(canon.SECTION_TOUR);
+            liberer_instance(&I);
+            return 4;
+        }
+        
         clock_t t0 = clock();
         double L;
-        marche_aleatoire(&I,d,&T);
-        L = two_opt(&I,d,&T);
+        marche_aleatoire(&I, d, &T);
+        T.FERMEE = 1;
+        L = two_opt(&I, d, &T);
         clock_t t1 = clock();
         double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
         print_line(I.NAME, "2optrw", secs, L, &T);
-
         free(T.SECTION_TOUR);
         free(canon.SECTION_TOUR);
         liberer_instance(&I);
@@ -227,6 +236,48 @@ int main(int argc, char** argv){
         liberer_instance(&I);
         return 0;
     }
+    
+    if (strcmp(method, "ga") == 0) {
+        int pop_size    = 30;    /* valeurs par défaut "light" */
+        int generations = 1000;
+        double mutation_rate = 0.10;
+
+        if (optind + 2 < argc) {
+            int tmp_pop = atoi(argv[optind]);
+            double tmp_mut = atof(argv[optind+1]);  
+            int tmp_gen = atoi(argv[optind+2]);     
+
+            if (tmp_pop > 0) pop_size = tmp_pop;
+            if (tmp_gen > 0) generations = tmp_gen;
+            if (tmp_mut >= 0.0 && tmp_mut <= 1.0) mutation_rate = tmp_mut;
+        }
+
+
+        TOUR_TSP best_ga = {0};
+        best_ga.SECTION_TOUR = NULL;
+
+        clock_t t0 = clock();
+        double best_len = tsp_ga_light(&I, d, pop_size, generations, mutation_rate, &best_ga);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        if (best_len < 0.0) {
+            fprintf(stderr, "Erreur: GA a echoue.\n");
+            if (best_ga.SECTION_TOUR) free(best_ga.SECTION_TOUR);
+            free(canon.SECTION_TOUR);
+            liberer_instance(&I);
+            return 9;
+        }
+
+        print_line(I.NAME, "ga", secs, best_len, &best_ga);
+
+        if (best_ga.SECTION_TOUR) free(best_ga.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
+    }
+
+
 
     /* -m bf : force brute  */
     if (strcmp(method, "bf") != 0) {
@@ -235,6 +286,8 @@ int main(int argc, char** argv){
         liberer_instance(&I);
         return 5;
     }
+    
+    
 
     /* Brute force demandée */
     if (I.DIMENSION > 12 && !force_large) {
