@@ -12,6 +12,7 @@
 #include "tsp_force_brute_matrice.h"
 #include "tsp_nn.h"
 #include "tsp_rw.h"
+#include "tsp_2opt.h"
 
 static void usage(const char* prog){
     fprintf(stderr,
@@ -175,6 +176,51 @@ int main(int argc, char** argv){
         double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
 
         print_line(I.NAME, "rw", secs, L, &T);
+
+        free(T.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
+    }
+
+    if (strcmp(method, "2optrw") == 0) {
+        TOUR_TSP T;
+        T.DIMENSION = I.DIMENSION;
+        T.FERMEE = 1;
+        T.LONGUEUR = -1.0;
+        T.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
+        if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour rw\n"); free(canon.SECTION_TOUR); liberer_instance(&I); return 4; }
+
+        clock_t t0 = clock();
+        double L;
+        marche_aleatoire(&I,d,&T);
+        L = two_opt(&I,d,&T);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+        print_line(I.NAME, "2optrw", secs, L, &T);
+
+        free(T.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
+    }
+
+    if (strcmp(method, "2optnn") == 0) {
+        TOUR_TSP T;
+        T.DIMENSION = I.DIMENSION;
+        T.FERMEE = 1;
+        T.LONGUEUR = -1.0;
+        T.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
+        if (!T.SECTION_TOUR) { fprintf(stderr, "alloc tour nn\n"); free(canon.SECTION_TOUR); liberer_instance(&I); return 4; }
+
+        clock_t t0 = clock();
+        double L;
+        plus_proche_voisin(&I,d,&T,1);
+        L = two_opt(&I,d,&T);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        print_line(I.NAME, "2optnn", secs, L, &T);
 
         free(T.SECTION_TOUR);
         free(canon.SECTION_TOUR);

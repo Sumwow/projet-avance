@@ -13,14 +13,14 @@ from tsp_tools import *
 from tsp_ga_fct import *
 
 # variables globales : paramètres de l'algorithme génétique
-population_size = 10
+population_size = 30
 generations = 1000
 mutation_rate = 0.10
 tournament_size = int(0.5*population_size)
 
 from burma import opt_tour,opt_length,att48_opt_tour # burma.py contient ces données
 
-file = "att48" #burma14 dja1436
+file = "../TestTsp/att48"
 instance = load_tsp_file(file+".tsp")
 
 cities = list(instance.get_nodes())
