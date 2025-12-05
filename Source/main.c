@@ -14,6 +14,7 @@
 #include "tsp_rw.h"
 #include "tsp_2opt.h"
 #include "tsp_ga.h"
+#include "tsp_dpx.h"
 
 
 static void usage(const char* prog){
@@ -270,6 +271,46 @@ int main(int argc, char** argv){
         }
 
         print_line(I.NAME, "ga", secs, best_len, &best_ga);
+
+        if (best_ga.SECTION_TOUR) free(best_ga.SECTION_TOUR);
+        free(canon.SECTION_TOUR);
+        liberer_instance(&I);
+        return 0;
+    }
+
+    if (strcmp(method, "gadpx") == 0) {
+        int pop_size    = 30;    /* valeurs par défaut "light" */
+        int generations = 1000;
+        double mutation_rate = 0.10;
+
+        if (optind + 2 < argc) {
+            int tmp_pop = atoi(argv[optind]);
+            double tmp_mut = atof(argv[optind+1]);  
+            int tmp_gen = atoi(argv[optind+2]);     
+
+            if (tmp_pop > 0) pop_size = tmp_pop;
+            if (tmp_gen > 0) generations = tmp_gen;
+            if (tmp_mut >= 0.0 && tmp_mut <= 1.0) mutation_rate = tmp_mut;
+        }
+
+
+        TOUR_TSP best_ga = {0};
+        best_ga.SECTION_TOUR = NULL;
+
+        clock_t t0 = clock();
+        double best_len = tsp_ga_dpx(&I, d, pop_size, generations, mutation_rate, &best_ga);
+        clock_t t1 = clock();
+        double secs = (double)(t1 - t0) / CLOCKS_PER_SEC;
+
+        if (best_len < 0.0) {
+            fprintf(stderr, "Erreur: GA a echoue.\n");
+            if (best_ga.SECTION_TOUR) free(best_ga.SECTION_TOUR);
+            free(canon.SECTION_TOUR);
+            liberer_instance(&I);
+            return 9;
+        }
+
+        print_line(I.NAME, "gadpx", secs, best_len, &best_ga);
 
         if (best_ga.SECTION_TOUR) free(best_ga.SECTION_TOUR);
         free(canon.SECTION_TOUR);
