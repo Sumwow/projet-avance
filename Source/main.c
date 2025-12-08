@@ -244,9 +244,9 @@ int main(int argc, char** argv){
         double mutation_rate = 0.10;
 
         if (optind + 2 < argc) {
-            int tmp_pop = atoi(argv[optind]);
+            int tmp_gen = atoi(argv[optind]);
             double tmp_mut = atof(argv[optind+1]);  
-            int tmp_gen = atoi(argv[optind+2]);     
+            int tmp_pop = atoi(argv[optind+2]);     
 
             if (tmp_pop > 0) pop_size = tmp_pop;
             if (tmp_gen > 0) generations = tmp_gen;
@@ -284,9 +284,9 @@ int main(int argc, char** argv){
         double mutation_rate = 0.10;
 
         if (optind + 2 < argc) {
-            int tmp_pop = atoi(argv[optind]);
+            int tmp_gen = atoi(argv[optind]);
             double tmp_mut = atof(argv[optind+1]);  
-            int tmp_gen = atoi(argv[optind+2]);     
+            int tmp_pop = atoi(argv[optind+2]);     
 
             if (tmp_pop > 0) pop_size = tmp_pop;
             if (tmp_gen > 0) generations = tmp_gen;
