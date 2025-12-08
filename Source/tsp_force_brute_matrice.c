@@ -13,7 +13,7 @@ void handler_matrice(int sig){
   signal_recu_matrice = true;
 }
 
-void print_force_brute_matrice(double meilleur, double pire){
+static void print_force_brute_matrice(double meilleur, double pire){
   printf("Meilleur longueur : %f\n",meilleur);
   printf("Pire longueur : %f\n",pire);
   printf("Entrez un caractère pour reprendre\n");
