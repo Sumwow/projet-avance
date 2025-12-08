@@ -64,7 +64,7 @@ static void print_line(const char* name, const char* algo,
 }
 
 typedef enum {
-    ALGO_CANONICAL,
+    ALGO_CANONIQUE,
     ALGO_BF,
     ALGO_NN,
     ALGO_RW,
@@ -72,11 +72,11 @@ typedef enum {
     ALGO_2OPTRW,
     ALGO_GA,
     ALGO_GADPX,
-    ALGO_UNKNOWN
+    ALGO_INCONNU
 } AlgoType;
 
 static AlgoType parse_method(const char* m){
-    if (!m)              return ALGO_CANONICAL;
+    if (!m)              return ALGO_CANONIQUE;
     if (!strcmp(m,"bf")) return ALGO_BF;
     if (!strcmp(m,"nn")) return ALGO_NN;
     if (!strcmp(m,"rw")) return ALGO_RW;
@@ -84,7 +84,7 @@ static AlgoType parse_method(const char* m){
     if (!strcmp(m,"2optrw")) return ALGO_2OPTRW;
     if (!strcmp(m,"ga"))     return ALGO_GA;
     if (!strcmp(m,"gadpx"))  return ALGO_GADPX;
-    return ALGO_UNKNOWN;
+    return ALGO_INCONNU;
 }
 
 /* ============================== main =============================== */
@@ -92,22 +92,22 @@ static AlgoType parse_method(const char* m){
 int main(int argc, char** argv){
     int opt;
     FILE* output = stdout;
-    const char* outfile   = NULL;
-    const char* filename  = NULL;
-    int want_canonical    = 0;
-    const char* methodStr = NULL;
-    int use_matrix        = 0;
-    int force_large       = 0;
+    const char* outfile = NULL;
+    const char* filename = NULL;
+    const char* methode = NULL;
+    int canonique = 0;
+    int matrice = 0;
+    int grande_instance = 0;
 
     while ((opt = getopt(argc, argv, "hf:cm:MFo:")) != -1) {
         switch (opt) {
             case 'h': usage(argv[0]); return 0;
-            case 'f': filename       = optarg; break;
-            case 'c': want_canonical = 1;      break;
-            case 'm': methodStr      = optarg; break;
-            case 'o': outfile        = optarg; break;
-            case 'M': use_matrix     = 1;      break;
-            case 'F': force_large    = 1;      break;
+            case 'f': filename = optarg; break;
+            case 'c': canonique = 1; break;
+            case 'm': methode = optarg; break;
+            case 'o': outfile = optarg; break;
+            case 'M': matrice = 1; break;
+            case 'F': grande_instance = 1; break;
             default : usage(argv[0]); return 1;
         }
     }
@@ -126,16 +126,16 @@ int main(int argc, char** argv){
     }
 
     AlgoType algo;
-    if (methodStr){
-        algo = parse_method(methodStr);
-    } else if (want_canonical){
-        algo = ALGO_CANONICAL;
+    if (methode){
+        algo = parse_method(methode);
+    } else if (canonique){
+        algo = ALGO_CANONIQUE;
     } else {
-        algo = ALGO_CANONICAL;   /* défaut */
+        algo = ALGO_CANONIQUE;   /* par défaut */
     }
 
-    if (algo == ALGO_UNKNOWN){
-        fprintf(stderr, "Erreur: methode non supportee: %s\n", methodStr);
+    if (algo == ALGO_INCONNU){
+        fprintf(stderr, "Erreur: methode non supportee: %s\n", methode);
         return 5;
     }
 
@@ -153,17 +153,17 @@ int main(int argc, char** argv){
 
     TOUR_TSP canon = tour_canonique(I.DIMENSION);
 
-    TOUR_TSP work = {0};
-    int need_work =
+    TOUR_TSP tour = {0};
+    int algo_choisi =
         (algo == ALGO_NN || algo == ALGO_RW ||
          algo == ALGO_2OPTNN || algo == ALGO_2OPTRW);
 
-    if (need_work){
-        work.DIMENSION = I.DIMENSION;
-        work.FERMEE    = 1;
-        work.LONGUEUR  = -1.0;
-        work.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
-        if (!work.SECTION_TOUR){
+    if (algo_choisi){
+        tour.DIMENSION = I.DIMENSION;
+        tour.FERMEE    = 1;
+        tour.LONGUEUR  = -1.0;
+        tour.SECTION_TOUR = (int*)malloc((size_t)I.DIMENSION * sizeof(int));
+        if (!tour.SECTION_TOUR){
             fprintf(stderr, "alloc tour travail\n");
             liberer_instance(&I);
             free(canon.SECTION_TOUR);
@@ -171,8 +171,8 @@ int main(int argc, char** argv){
         }
     }
 
-    TOUR_TSP best = {0}, worst = {0};
-    TOUR_TSP best_ga = {0};
+    TOUR_TSP meilleur = {0}, pire = {0};
+    TOUR_TSP ga = {0};
 
     double L = -1.0;
     double secs = 0.0;
@@ -182,59 +182,59 @@ int main(int argc, char** argv){
 
     switch (algo){
 
-        case ALGO_CANONICAL: {
+        case ALGO_CANONIQUE: {
             L = longueur_tour(&I, &canon, d);
             break;
         }
 
         case ALGO_NN: {
-            if (use_matrix){
+            if (matrice){
                 MatriceTSP* M = creer_matrice_demie(&I, d);
-                if (!M) L = plus_proche_voisin(&I, d, &work, 1);
+                if (!M) L = plus_proche_voisin(&I, d, &tour, 1);
                 else {
-                    L = plus_proche_voisin_matrice(M, &work, 1);
+                    L = plus_proche_voisin_matrice(M, &tour, 1);
                     detruire_matrice_demie(M);
                 }
             } else {
-                L = plus_proche_voisin(&I, d, &work, 1);
+                L = plus_proche_voisin(&I, d, &tour, 1);
             }
             break;
         }
 
         case ALGO_RW: {
-            L = marche_aleatoire(&I, d, &work);
+            L = marche_aleatoire(&I, d, &tour);
             break;
         }
 
         case ALGO_2OPTRW: {
-            marche_aleatoire(&I, d, &work);
-            work.FERMEE = 1;
-            L = two_opt(&I, d, &work);
+            marche_aleatoire(&I, d, &tour);
+            tour.FERMEE = 1;
+            L = two_opt(&I, d, &tour);
             break;
         }
 
         case ALGO_2OPTNN: {
-            plus_proche_voisin(&I, d, &work, 1);
-            L = two_opt(&I, d, &work);
+            plus_proche_voisin(&I, d, &tour, 1);
+            L = two_opt(&I, d, &tour);
             break;
         }
 
         case ALGO_GA: {
-            int pop_size    = 30;
+            int taille_pop = 10;
             int generations = 1000;
-            double mutation_rate = 0.10;
+            double taux_mutation = 0.10;
 
             if (optind + 2 < argc) {
                 int tmp_gen = atoi(argv[optind]);
                 double tmp_mut = atof(argv[optind+1]);
                 int tmp_pop = atoi(argv[optind+2]);
-                if (tmp_pop > 0) pop_size = tmp_pop;
+                if (tmp_pop > 0) taille_pop = tmp_pop;
                 if (tmp_gen > 0) generations = tmp_gen;
-                if (tmp_mut >= 0.0 && tmp_mut <= 1.0) mutation_rate = tmp_mut;
+                if (tmp_mut >= 0.0 && tmp_mut <= 1.0) taux_mutation = tmp_mut;
             }
 
-            best_ga.SECTION_TOUR = NULL;
-            L = tsp_ga_light(&I, d, pop_size, generations, mutation_rate, &best_ga);
+            ga.SECTION_TOUR = NULL;
+            L = tsp_ga_light(&I, d, taille_pop, generations, taux_mutation, &ga);
             if (L < 0.0){
                 fprintf(stderr, "Erreur: GA a echoue.\n");
                 status = 9;
@@ -243,21 +243,21 @@ int main(int argc, char** argv){
         }
 
         case ALGO_GADPX: {
-            int pop_size    = 30;
+            int taille_pop = 10;
             int generations = 1000;
-            double mutation_rate = 0.10;
+            double taux_mutation = 0.10;
 
             if (optind + 2 < argc) {
                 int tmp_gen = atoi(argv[optind]);
                 double tmp_mut = atof(argv[optind+1]);
                 int tmp_pop = atoi(argv[optind+2]);
-                if (tmp_pop > 0) pop_size = tmp_pop;
+                if (tmp_pop > 0) taille_pop = tmp_pop;
                 if (tmp_gen > 0) generations = tmp_gen;
-                if (tmp_mut >= 0.0 && tmp_mut <= 1.0) mutation_rate = tmp_mut;
+                if (tmp_mut >= 0.0 && tmp_mut <= 1.0) taux_mutation = tmp_mut;
             }
 
-            best_ga.SECTION_TOUR = NULL;
-            L = tsp_ga_dpx(&I, d, pop_size, generations, mutation_rate, &best_ga);
+            ga.SECTION_TOUR = NULL;
+            L = tsp_ga_dpx(&I, d, taille_pop, generations, taux_mutation, &ga);
             if (L < 0.0){
                 fprintf(stderr, "Erreur: GA+DPX a echoue.\n");
                 status = 9;
@@ -266,25 +266,25 @@ int main(int argc, char** argv){
         }
 
         case ALGO_BF: {
-            if (I.DIMENSION > 12 && !force_large){
+            if (I.DIMENSION > 12 && !grande_instance){
                 fprintf(stderr, "Erreur: DIMENSION=%d > 12. Utilisez -F pour forcer la brute force.\n",
                         I.DIMENSION);
                 status = 6;
                 break;
             }
-            best.SECTION_TOUR = NULL;
-            worst.SECTION_TOUR = NULL;
+            meilleur.SECTION_TOUR = NULL;
+            pire.SECTION_TOUR = NULL;
 
-            if (use_matrix){
+            if (matrice){
                 MatriceTSP* M = creer_matrice_demie(&I, d);
                 if (!M) {
-                    L = force_brute(&I, d, &best, &worst);
+                    L = force_brute(&I, d, &meilleur, &pire);
                 } else {
-                    L = force_brute_matrice(M, &best, &worst);
+                    L = force_brute_matrice(M, &meilleur, &pire);
                     detruire_matrice_demie(M);
                 }
             } else {
-                L = force_brute(&I, d, &best, &worst);
+                L = force_brute(&I, d, &meilleur, &pire);
             }
             if (L < 0.0){
                 fprintf(stderr, "Erreur: force brute a echoue.\n");
@@ -304,29 +304,29 @@ int main(int argc, char** argv){
     if (status != 0) goto fin;
 
     switch (algo){
-        case ALGO_CANONICAL:
+        case ALGO_CANONIQUE:
             print_line(I.NAME, "canonical", secs, L, &canon);
             break;
         case ALGO_NN:
-            print_line(I.NAME, "nn", secs, L, &work);
+            print_line(I.NAME, "nn", secs, L, &tour);
             break;
         case ALGO_RW:
-            print_line(I.NAME, "rw", secs, L, &work);
+            print_line(I.NAME, "rw", secs, L, &tour);
             break;
         case ALGO_2OPTRW:
-            print_line(I.NAME, "2optrw", secs, L, &work);
+            print_line(I.NAME, "2optrw", secs, L, &tour);
             break;
         case ALGO_2OPTNN:
-            print_line(I.NAME, "2optnn", secs, L, &work);
+            print_line(I.NAME, "2optnn", secs, L, &tour);
             break;
         case ALGO_GA:
-            print_line(I.NAME, "ga", secs, L, &best_ga);
+            print_line(I.NAME, "ga", secs, L, &ga);
             break;
         case ALGO_GADPX:
-            print_line(I.NAME, "gadpx", secs, L, &best_ga);
+            print_line(I.NAME, "gadpx", secs, L, &ga);
             break;
         case ALGO_BF:
-            print_line(I.NAME, "bf", secs, L, &best);
+            print_line(I.NAME, "bf", secs, L, &meilleur);
             break;
         default:
             break;
@@ -335,10 +335,10 @@ int main(int argc, char** argv){
 fin:
     if (output != stdout) fclose(output);
 
-    if (work.SECTION_TOUR)     free(work.SECTION_TOUR);
-    if (best.SECTION_TOUR)     free(best.SECTION_TOUR);
-    if (worst.SECTION_TOUR)    free(worst.SECTION_TOUR);
-    if (best_ga.SECTION_TOUR)  free(best_ga.SECTION_TOUR);
+    if (tour.SECTION_TOUR) free(tour.SECTION_TOUR);
+    if (meilleur.SECTION_TOUR) free(meilleur.SECTION_TOUR);
+    if (pire.SECTION_TOUR) free(pire.SECTION_TOUR);
+    if (ga.SECTION_TOUR) free(ga.SECTION_TOUR);
     free(canon.SECTION_TOUR);
     liberer_instance(&I);
 

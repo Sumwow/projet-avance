@@ -11,7 +11,7 @@ void handler(int sig){
   signal_recu = true;
 }
 
-static print_force_brute(double meilleur, double pire){
+static void print_force_brute(double meilleur, double pire){
   printf("Meilleur longueur : %f\n",meilleur);
   printf("Pire longueur : %f\n",pire);
   printf("Entrez un caractère pour reprendre\n");

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef TSP_TYPES_H
+#define TSP_TYPES_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -34,3 +36,5 @@ typedef struct TOUR_TSP {
     int FERMEE;
     double LONGUEUR;
 } TOUR_TSP;
+
+#endif

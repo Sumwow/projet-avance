@@ -1,7 +1,7 @@
 #ifndef TSP_BRUTE_GENERIQUE_H
 #define TSP_BRUTE_GENERIQUE_H
 
-#include "tsp_matrice.h"  /*MatriceTSP, TOUR_TSP*/
+#include "tsp_matrice.h"
 
 void brute_set_matrice(MatriceTSP *m);
 
@@ -13,4 +13,4 @@ double brute(int nb_nodes,
 
 void *cout_tsp_matrice(void *unused, int *perm);
 
-#endif /*TSP_BRUTE_GENERIQUE_H*/
+#endif

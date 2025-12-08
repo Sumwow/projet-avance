@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TSP_DISTANCE_H
+#define TSP_DISTANCE_H
 #include <stddef.h>
 #include "tsp_types.h"
 
@@ -15,3 +16,5 @@ double dist_att  (const TSPLIB_INSTANCE* I, int i, int j);
 
 /* Calcul de la longueur d'une tournée */
 double longueur_tour(const TSPLIB_INSTANCE* I, const TOUR_TSP* T, DistanceFn d);
+
+#endif

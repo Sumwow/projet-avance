@@ -25,5 +25,5 @@ static inline double matrice_distance(const MatriceTSP* M, int i, int j) {
     else        return M->data[j - 1][i - j - 1];
 }
 
-#endif /* TSP_MATRICE_H */
+#endif
 
