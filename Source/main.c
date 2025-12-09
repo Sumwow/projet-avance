@@ -8,14 +8,50 @@
 #include "tsp_io.h"
 #include "tsp_distance.h"
 #include "tsp_matrice.h"
-#include "tsp_force_brute.h"
-#include "tsp_force_brute_matrice.h"
+//#include "tsp_force_brute.h"
+//#include "tsp_force_brute_matrice.h"
+#include "tsp_force_brute_generique.h"
 #include "tsp_nn.h"
 #include "tsp_rw.h"
 #include "tsp_2opt.h"
 #include "tsp_ga.h"
 #include "tsp_dpx.h"
 
+static const TSPLIB_INSTANCE* gI_coord = NULL;
+static DistanceFn gD_coord = NULL;
+
+
+static void brute_set_instance(const TSPLIB_INSTANCE* I, DistanceFn d) {
+    gI_coord = I;
+    gD_coord = d;
+}
+
+static void* cout_tsp_coord(void* unused, int* permutation_villes) {
+    (void)unused;
+
+    if (!gI_coord || !gD_coord || !permutation_villes)
+        return NULL;
+
+    int n = gI_coord->DIMENSION;
+    double longueur_totale = 0.0;
+
+    for (int i = 0; i < n - 1; ++i) {
+        int a = permutation_villes[i];
+        int b = permutation_villes[i + 1];
+        longueur_totale += gD_coord(gI_coord, a, b);
+    }
+
+    if (n > 1) {
+        int last  = permutation_villes[n - 1];
+        int first = permutation_villes[0];
+        longueur_totale += gD_coord(gI_coord, last, first);
+    }
+
+    double* res = (double*)malloc(sizeof(double));
+    if (!res) return NULL;
+    *res = longueur_totale;
+    return res;
+}
 
 static void usage(const char* prog){
     fprintf(stderr,
@@ -272,19 +308,24 @@ int main(int argc, char** argv){
                 status = 6;
                 break;
             }
-            meilleur.SECTION_TOUR = NULL;
+            int N = I.DIMENSION;
+            meilleur.DIMENSION = N;
+            meilleur.SECTION_TOUR = (int*) malloc((size_t)N*sizeof(int));
             pire.SECTION_TOUR = NULL;
-
+            unsigned long long cout_meilleur_long = 0ULL;
             if (matrice){
                 MatriceTSP* M = creer_matrice_demie(&I, d);
-                if (!M) {
-                    L = force_brute(&I, d, &meilleur, &pire);
-                } else {
-                    L = force_brute_matrice(M, &meilleur, &pire);
+                if (M) {
+                    brute_set_matrice(M);  /* définie dans tsp_force_brute_generique.c */
+                    L = brute(N, 0, meilleur.SECTION_TOUR, &cout_meilleur_long, cout_tsp_matrice);
                     detruire_matrice_demie(M);
+                } else {
+                    brute_set_instance(&I, d);
+                    L = brute(N, 0, meilleur.SECTION_TOUR, &cout_meilleur_long, cout_tsp_coord);
                 }
             } else {
-                L = force_brute(&I, d, &meilleur, &pire);
+                brute_set_instance(&I, d);
+                L = brute(N, 0, meilleur.SECTION_TOUR, &cout_meilleur_long, cout_tsp_coord);
             }
             if (L < 0.0){
                 fprintf(stderr, "Erreur: force brute a echoue.\n");
