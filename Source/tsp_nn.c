@@ -69,7 +69,7 @@ double plus_proche_voisin(const TSPLIB_INSTANCE* I,
     return longueur;
 }
 
-/*Version DemiMatrice (pas obligatoire je vous laisse le choix de la garder ou non) */
+/* Version DemiMatrice (non utilisé) */
 
 double plus_proche_voisin_matrice(const MatriceTSP* M,
                                   TOUR_TSP* tour,

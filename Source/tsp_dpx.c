@@ -7,10 +7,7 @@
 #include "tsp_ga.h"
 #include <float.h> // Pour DBL_MAX
 
-static double calculLongueur(const TSPLIB_INSTANCE* I,
-                           DistanceFn d,
-                           const int* perm,
-                           int n)
+static double calculLongueur(const TSPLIB_INSTANCE* I, DistanceFn d, const int* perm, int n)
 {
     TOUR_TSP T;
     T.DIMENSION     = n;
@@ -50,8 +47,8 @@ static void swap_mutation(int* perm, int n, double mutation_rate)
     perm[j] = tmp;
 }
 
-static void tournament_selection(const TSPLIB_INSTANCE* I,
-                                 DistanceFn d,
+static void tournament_selection(const TSPLIB_INSTANCE* I, 
+                                 DistanceFn d, 
                                  int** population,
                                  int pop_size,
                                  int** selected,
@@ -112,76 +109,43 @@ static void dpx_crossover(const TSPLIB_INSTANCE* I,
                           int* child,
                           int n)
 {
-    // 1. Tableaux de gestion des connexions
     int* next = (int*)malloc(n * sizeof(int));
     int* prev = (int*)malloc(n * sizeof(int));
-    // visited sert à marquer les villes déjà placées dans le tableau final 'child'
+
     int* visited = (int*)calloc(n, sizeof(int)); 
 
-    // Initialisation : tout est déconnecté au départ
     for(int i=0; i<n; ++i) {
         next[i] = -1;
         prev[i] = -1;
     }
 
-    // 2. Pré-traitement du Parent 2 pour recherche rapide
-    // On stocke les voisins de chaque ville dans P2 pour vérifier l'existence des arêtes
-    // Comme le degré est toujours 2, on peut utiliser un petit tableau statique ou dynamique.
-    // Pour simplifier ici (et éviter une matrice NxN), on peut scanner P2 ou construire une adjacence.
-    // Vu que N est petit (< quelques milliers), construisons une matrice d'adjacence booléenne
-    // ou plus économe : une table de hachage simple ou juste scanner les voisins.
-    // OPTION SIMPLE EFFICACE : Tableau de voisins [N][2]
     int (*neighbors_p2)[2] = malloc(n * sizeof(*neighbors_p2));
     for (int i = 0; i < n; ++i) {
-        // Trouver i dans p2
-        // Note: C'est un peu lent en O(N^2) global pour l'initialisation mais acceptable pour <1000 villes.
-        // Pour optimiser, on pourrait mapper p2_pos[ville] = index.
         neighbors_p2[i][0] = -1;
         neighbors_p2[i][1] = -1;
     }
     
-    // Remplissage rapide des voisins de P2
-    // On suppose p2 est une permutation valide 0..N-1 (attention aux indices 1..N du TSP)
-    // Les valeurs dans p1/p2 sont les ID des villes (ex: 1 à N).
-    // Les tableaux C sont 0 à N-1. On doit ajuster si les villes sont 1-based.
-    // Supposons que p1/p2 contiennent des indices 1..N comme souvent dans TSPLIB.
-    // On convertira en 0..N-1 pour l'accès tableau : (ville - 1).
-    
-    // ASTUCE : On va travailler directement avec les indices du tableau pour simplifier.
-    // On suppose que les valeurs dans p1/p2 sont gérées correctement (1..N). 
-    // On utilisera (val - 1) pour indexer.
-
     for (int i = 0; i < n; ++i) {
         int u = p2[i];
         int v_prev = p2[(i - 1 + n) % n];
         int v_next = p2[(i + 1) % n];
-        // Stockage 0-indexed
         neighbors_p2[u-1][0] = v_prev;
         neighbors_p2[u-1][1] = v_next;
     }
 
-    // 3. Phase de CASSE (Copie P1 et garde arêtes communes) [cite: 209, 210]
     for (int i = 0; i < n; ++i) {
         int u = p1[i];
-        int v = p1[(i + 1) % n]; // Le suivant dans P1
+        int v = p1[(i + 1) % n];
 
-        // Vérifier si l'arête (u,v) existe dans P2
         int u_idx = u - 1;
         int is_common = (neighbors_p2[u_idx][0] == v) || (neighbors_p2[u_idx][1] == v);
 
         if (is_common) {
-            // On garde le lien u -> v
-            next[u_idx] = v; // v est stocké en valeur (1..N)
+            next[u_idx] = v;
             prev[v - 1] = u;
         }
-        // Sinon, next[u-1] reste -1 (fin de fragment) et prev[v-1] reste -1 (début de fragment)
     }
 
-    // 4. Phase de RECONNEXION (Nearest Neighbor) [cite: 212]
-    // On doit reconstruire le cycle complet dans 'child'.
-    // On part d'une ville arbitraire (disons le début d'un fragment disponible).
-    
-    // Trouver un point de départ qui est un début de fragment (prev == -1)
     int start_node = -1;
     for(int i=0; i<n; ++i) {
         if (prev[i] == -1) {
@@ -189,8 +153,7 @@ static void dpx_crossover(const TSPLIB_INSTANCE* I,
             break;
         }
     }
-    // Si le cycle est déjà parfait (P1 == P2 à une rotation près), start_node peut ne pas être trouvé via prev==-1.
-    // Dans ce cas, on prend p1[0].
+
     if (start_node == -1) start_node = p1[0];
 
     int current = start_node;
@@ -200,29 +163,19 @@ static void dpx_crossover(const TSPLIB_INSTANCE* I,
         child[count++] = current;
         visited[current - 1] = 1;
 
-        // Si on a un lien préservé, on le suit
         if (next[current - 1] != -1) {
             current = next[current - 1];
         } else {
-            // FIN DE FRAGMENT : Il faut sauter vers un DEBUT de fragment (prev == -1) non visité
-            // On cherche le plus proche voisin k parmi les débuts de fragments disponibles.
             
             double min_dist = DBL_MAX;
             int best_k = -1;
 
-            // Optimisation : on ne cherche que parmi les villes non visitées qui sont des "têtes" (prev == -1)
-            // Sauf pour la toute dernière arête qui boucle sur le start_node.
-            
             for (int k_idx = 0; k_idx < n; ++k_idx) {
                 int k_city = k_idx + 1;
-                
-                // On cherche une ville non visitée qui est un début de fragment
+              
                 if (!visited[k_idx] && prev[k_idx] == -1) {
-                    // Calcul distance
-                    // Attention: il faut construire une structure TOUR temporaire pour utiliser la fonction 'd'
-                    // ou appeler 'd' directement si elle prend des indices/coordonnées.
-                    // 'd' prend (I, i, j).
-                    double dist = d(I, current, k_city); // Supposons que d prend les villes 1..N
+
+                    double dist = d(I, current, k_city);
                     if (dist < min_dist) {
                         min_dist = dist;
                         best_k = k_city;
@@ -230,18 +183,14 @@ static void dpx_crossover(const TSPLIB_INSTANCE* I,
                 }
             }
 
-            // Si on ne trouve rien, c'est qu'on doit fermer la boucle (retour au start)
             if (best_k == -1) {
                 // Normalement cela n'arrive qu'à la toute fin
                 break; 
             }
-            
-            // On connecte virtuellement et on saute
             current = best_k;
         }
     }
 
-    // Nettoyage
     free(next);
     free(prev);
     free(visited);
@@ -309,35 +258,28 @@ if (!I || !d || !best_tour) return -1.0;
 
     for (int g = 0; g < generations; ++g) {
         tournament_selection(I, d, population, population_size, selected, tournament_size, n);
-        // ... (début de la boucle de générations)
     tournament_selection(I, d, population, population_size, selected, tournament_size, n);
 
     for (int i = 0; i < population_size; i += 2) {
         int next = (i + 1 < population_size) ? (i + 1) : 0;
 
-        // --- ENFANT 1 ---
-        // 1. Croisement DPX
-        // Note : Assurez-vous que dpx_crossover accepte bien I et d comme vu précédemment
         dpx_crossover(I, d, selected[i], selected[next], offspring[i], n);
 
-        // 2. Optimisation 2-opt immédiate (demandée par le sujet) [cite: 222, 240]
         {
             TOUR_TSP temp_tour;
             temp_tour.DIMENSION = n;
             temp_tour.FERMEE = 1;
-            temp_tour.SECTION_TOUR = offspring[i]; // On pointe directement sur le tableau de l'enfant
-            temp_tour.LONGUEUR = -1.0; // Sera recalculé par two_opt si nécessaire
-            
-            two_opt(I, d, &temp_tour); 
-            // two_opt modifie temp_tour.SECTION_TOUR in-situ, donc offspring[i] est mis à jour
+            temp_tour.SECTION_TOUR = offspring[i];
+            temp_tour.LONGUEUR = -1.0;
+
+            two_opt(I, d, &temp_tour);
+
         }
 
-        // --- ENFANT 2 (si la taille de population le permet) ---
         if (i + 1 < population_size) {
-            // 1. Croisement DPX (inversion des parents)
+
             dpx_crossover(I, d, selected[next], selected[i], offspring[i + 1], n);
 
-            // 2. Optimisation 2-opt immédiate
             {
                 TOUR_TSP temp_tour;
                 temp_tour.DIMENSION = n;
@@ -350,7 +292,6 @@ if (!I || !d || !best_tour) return -1.0;
         }
     }
     
-    // ... (suite avec la mutation éventuelle et le tri)
         for (int i = 0; i < population_size; ++i)
             swap_mutation(offspring[i], n, mutation_rate);
             

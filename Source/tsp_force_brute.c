@@ -21,7 +21,7 @@ static void print_force_brute(double meilleur, double pire){
   signal_recu = false;
 }
 
-/* Locale : prochaine permutation lexicographique */
+
 static int prochaine_permutation(int *villes, int nbVilles) {
     int i = nbVilles - 2;
     while (i >= 0 && villes[i] >= villes[i + 1]) i--;
@@ -40,7 +40,6 @@ static int prochaine_permutation(int *villes, int nbVilles) {
     return 1;
 }
 
-/* Force brute via DistanceFn (patch allocations inclus) */
 double force_brute(const TSPLIB_INSTANCE* instance, DistanceFn calculDistance,
                    TOUR_TSP* meilleureTournee, TOUR_TSP* pireTournee) {
 
@@ -62,7 +61,7 @@ double force_brute(const TSPLIB_INSTANCE* instance, DistanceFn calculDistance,
     double longueurMin = longueur_tour(instance, &tourActuelle, calculDistance);
     double longueurMax = longueurMin;
 
-    /* Patch minimal : allouer sorties si besoin */
+    /* allouer sorties si besoin */
     if (meilleureTournee->SECTION_TOUR == NULL || meilleureTournee->DIMENSION != nbVilles) {
         if (meilleureTournee->SECTION_TOUR) free(meilleureTournee->SECTION_TOUR);
         meilleureTournee->SECTION_TOUR = (int*)malloc((size_t)nbVilles * sizeof(int));

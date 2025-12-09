@@ -8,6 +8,7 @@
 #include "tsp_io.h"
 #include "tsp_distance.h"
 #include "tsp_matrice.h"
+//Plus utilisé
 //#include "tsp_force_brute.h"
 //#include "tsp_force_brute_matrice.h"
 #include "tsp_force_brute_generique.h"

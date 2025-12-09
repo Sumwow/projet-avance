@@ -11,8 +11,6 @@ void brute_set_matrice(MatriceTSP *matrice) {
     global_matrice_tsp = matrice;
 }
 
-/*SIGNAL*/
-
 static bool signal_recu_forcebrute = false;
 
 void handler_forcebrute(int sig) {
@@ -28,8 +26,6 @@ static void print_force_brute(double meilleur, double pire) {
     printf("Reprise de force brute\n");
     signal_recu_forcebrute = false;
 }
-
-/*PERMUTATION*/
 
 static int prochaine_permutation(int *villes, int nbVilles) {
     int i = nbVilles - 2;
@@ -55,8 +51,6 @@ static int prochaine_permutation(int *villes, int nbVilles) {
     return 1;
 }
 
-/*DISTANCE MATRICE*/
-
 static double lire_distance_matrice(const MatriceTSP* matrice, int i, int j) {
     if (i == j) return 0.0;
 
@@ -71,8 +65,6 @@ static double lire_distance_matrice(const MatriceTSP* matrice, int i, int j) {
 
     return matrice->data[ligne][colonne];
 }
-
-/*FONCTION COUT*/
 
 void *cout_tsp_matrice(void *param_inutile, int *permutation_villes) {
     (void)param_inutile; 
@@ -103,8 +95,6 @@ void *cout_tsp_matrice(void *param_inutile, int *permutation_villes) {
 
     return resultat;
 }
-
-/*BRUTE FORCE GENERIQUE*/
 
 double brute(int nombre_noeuds, int nombre_ressources, int *meilleure_permutation, unsigned long long *cout_meilleur, void * (*fonction_cout)(void *, int *)) {
 
@@ -145,7 +135,6 @@ double brute(int nombre_noeuds, int nombre_ressources, int *meilleure_permutatio
     *cout_meilleur = meilleur_cout_long;
 
     double pire_cout_double = meilleur_cout_double;
-    unsigned long long pire_cout_long = meilleur_cout_long;
 
     while (prochaine_permutation(ordre_courant, nombre_noeuds)) {
 
@@ -179,11 +168,6 @@ double brute(int nombre_noeuds, int nombre_ressources, int *meilleure_permutatio
                 meilleure_permutation[indice] = ordre_courant[indice];
 
             *cout_meilleur = meilleur_cout_long;
-        }
-
-        if (cout_courant_double > pire_cout_double) {
-            pire_cout_double = cout_courant_double;
-            pire_cout_long = cout_courant_long;
         }
 
         if (signal_recu_forcebrute) {

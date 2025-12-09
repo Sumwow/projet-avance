@@ -1,6 +1,13 @@
 #ifndef TSP_TYPES_H
 #define TSP_TYPES_H
 
+#ifndef TSPLIB_MAX_NAME
+#define TSPLIB_MAX_NAME 128
+#endif
+#ifndef TSPLIB_MAX_COMMENT
+#define TSPLIB_MAX_COMMENT 512
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -10,13 +17,6 @@ typedef struct {
     double X;
     double Y;
 } NODE;
-
-#ifndef TSPLIB_MAX_NAME
-#define TSPLIB_MAX_NAME 128
-#endif
-#ifndef TSPLIB_MAX_COMMENT
-#define TSPLIB_MAX_COMMENT 512
-#endif
 
 /* Structure représentant une instance TSPLIB avec ses métadonnées et ses coordonnées de nœuds */
 typedef struct TSPLIB_INSTANCE {

@@ -1,1 +1,6 @@
 ../TestTsp/att10.tsp
+../TestTsp/att48.tsp
+../TestTsp/burma10.tsp
+../TestTsp/burma14.tsp
+../TestTsp/eil10.tsp
+../TestTsp/eil51.tsp

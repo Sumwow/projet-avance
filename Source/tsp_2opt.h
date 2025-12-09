@@ -5,8 +5,6 @@
 #include "tsp_distance.h"
 #include "tsp_matrice.h"
 
-double two_opt(const TSPLIB_INSTANCE* I,
-               DistanceFn d,
-               TOUR_TSP* tour);
+double two_opt(const TSPLIB_INSTANCE* I, DistanceFn d, TOUR_TSP* tour);
 
 #endif

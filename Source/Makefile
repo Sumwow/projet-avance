@@ -2,10 +2,9 @@ CC = gcc
 CFLAGS = -O2 -Wall -Wextra
 LDFLAGS = -lm
 
-# Tous les fichiers sources C
 SRC := $(wildcard *.c)
 
-# Sources communes (tous sauf les deux main)
+# Tous sauf les deux main)
 SRC_COMMON := $(filter-out main.c main_dbg.c, $(SRC))
 
 # Exécutables

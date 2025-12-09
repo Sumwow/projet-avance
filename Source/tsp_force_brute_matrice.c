@@ -4,8 +4,6 @@
 #include <signal.h>
 #include "tsp_matrice.h"
 
-
-
 bool signal_recu_matrice = false;
 
 void handler_matrice(int sig){
@@ -87,7 +85,7 @@ double force_brute_matrice(const MatriceTSP* matrice,
     double longueurMin = longueur_tour_matrice(matrice, &tourActuelle);
     double longueurMax = longueurMin;
 
-    /* Patch minimal : allouer sorties si besoin */
+    /* allouer sorties si besoin */
     if (meilleureTournee->SECTION_TOUR == NULL || meilleureTournee->DIMENSION != nbVilles) {
         if (meilleureTournee->SECTION_TOUR) free(meilleureTournee->SECTION_TOUR);
         meilleureTournee->SECTION_TOUR = (int*)malloc((size_t)nbVilles * sizeof(int));

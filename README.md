@@ -8,6 +8,6 @@
 * Pour éxécuter le brute force sur des instances de dimension >= 12 il faut ajouter l'option -F.
 * A cause de la gestion des interruptions du Ctrl_C, pour arrêter l'éxécution du programme il faut fermer le terminal, notamment pour des instances très longue à calculer.
 * Pour utiiser le force brute avec une matrice de distances pré-calculé, il faut ajouter -M, cela réduit le temps processeur.
-* Sur des grosses instances les tests Python ne donnent que la tournée canonique car autrement le calcul est trop long.
+* Sur des grosses instances, les tests Python ne donnet pas la force brute car c'est beaucoup trop long.
 * Nous avons un aussi un main_dbg pour "debug" qui contient nos affichages personnalisés avec l'option -X, (ne prend pas les mêmes options).
 * Nous avons modifié les requirements pour régler nos problèmes d'installation dans l'environnement virtuel.

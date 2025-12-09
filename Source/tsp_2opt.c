@@ -14,9 +14,7 @@ static void inverser_segment(int* tour, int debut, int fin) {
     }
 }
 
-double two_opt(const TSPLIB_INSTANCE* instance,
-               DistanceFn distance,
-               TOUR_TSP* tour)
+double two_opt(const TSPLIB_INSTANCE* instance, DistanceFn distance, TOUR_TSP* tour)
 {
     if (instance == NULL || distance == NULL || tour == NULL || tour->SECTION_TOUR == NULL) {
         printf("Erreur : arguments invalides dans two_opt.\n");
